@@ -69,7 +69,8 @@ CAN_RESULT CANUnregister(OS_EVENT* queue)
 */
 void interrupt VectorNumber_Vcan0rx i_receive_frame()
 {
-  CAN_BUF_MSG* msg = CANBufStore(&CAN0RXIDR0);    
+  CAN_BUF_MSG* msg = CANBufStore(&CAN0RXIDR0);
+  CAN0RFLG = CAN0RFLG_RXF_MASK;
   
   if (msg) {
     last_rx_error = CANQPost(msg);
@@ -77,9 +78,7 @@ void interrupt VectorNumber_Vcan0rx i_receive_frame()
     last_rx_error = 0xff; 
   }
   
-  CANBufErase(&msg->message);
-  
-  CAN0RFLG = CAN0RFLG_RXF_MASK;
+  CANBufErase(&msg->message);  
 }
 
 /**
