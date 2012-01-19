@@ -3,22 +3,17 @@
 
 #include <ucos_ii.h>
 #include <os_cpu.h>
+#include "CAN_config.h"
 
-// Constants
-/**
- * Set #CAN_OPTIONS .CLKSRC to this value to select the oscillator as the CAN 
- * clock source. */
-#define CAN_CLOCK_OSC              0u 
-/**
- * Set #CAN_OPTIONS .CLKSRC to this value to select the bus clock as the CAN 
- * clock source. */
-#define CAN_CLOCK_BUS              1u  
-#define CAN_SINGLE_SAMPLE          0u
-#define CAN_TRIPLE_SAMPLE          1u
-#define CAN_CLOCK_OSC_SPEED  4000000u //  4Mhz
-#define CAN_CLOCK_BUS_SPEED 20000000u // 20Mhz
-#define CAN_MSG_BUFFER_SIZE       10u
-#define CAN_MAX_QUEUES            10u
+// Symbolic values
+enum {
+  CAN_CLOCK_OSC = 0u,
+  CAN_CLOCK_BUS = 1u
+};
+enum {
+  CAN_SINGLE_SAMPLE = 0u,
+  CAN_TRIPLE_SAMPLE = 1u
+};
 
 /* CAN_OPTIONS                                                               *
  * Modify to initialise the CAN bus with different options. Default          *
@@ -28,9 +23,6 @@
  *   LOOPB:  0                                                               *
  *   CLKSRC: CAN_CLOCK_OSC                                                   *
 \* All other fields are ignored.                                             */
-/**
- * Bla
- */
 extern CAN0CTL1STR CAN_OPTIONS;
 /* CAN_TIMING1, CAN_TIMING2                                                  *
  * By default, these specify a 500K baud rate for an oscillator clock        *
@@ -74,7 +66,8 @@ typedef INT8U CAN_RESULT;
 #define CAN_SEND_BUFFER_FULL 0x02
 #define CAN_USER_ERROR       0x04
 #define CAN_STILL_IN_USE     0x08
-#define CAN_NO_SEMAPHORE     0x10
+#define CAN_NO_MUTEX         0x10
+#define CAN_MISC_ERROR       0x20
 
 /** Function Prototypes */
 

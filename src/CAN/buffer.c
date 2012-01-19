@@ -1,4 +1,4 @@
-#include <os_cpu.h>
+#include <ucos_ii.h>
 #include "CAN_driver.h"
 #include "buffer.h"
 
@@ -9,6 +9,8 @@
 CAN_BUF_MSG msg_buffer[CAN_MSG_BUFFER_SIZE];
 /** Bit mask that tells which buffers are empty (1=empty) */
 INT8U free_buffers[CAN_MSG_BUFFER_BITS_SIZE];
+/** Mutex for freeing buffers */
+OS_EVENT* buffer_mutex;
 
 void CANBufClear(void) {
   INT8U index;
@@ -16,6 +18,15 @@ void CANBufClear(void) {
     free_buffers[index] = 0xFF;
 }
 
+CAN_RESULT CANBufInit(void)
+{
+  INT8U err;
+  CANBufClear();
+  buffer_mutex = OSMutexCreate(CAN_MUTEX_PRIO, &err);
+  if (err != OS_ERR_NONE)
+    return CAN_NO_MUTEX;
+  return CAN_OK;
+}
 /**
 * \brief    Find empty buffer slot
 */
@@ -64,10 +75,13 @@ CAN_BUF_MSG* CANBufStore(void* data)
 */
 CAN_RESULT CANBufErase(CAN_MSG* msg)
 {
-  INT8U index;
+  INT8U index, err;
   CAN_BUF_MSG* buf;
+
+  // Deleting a null pointer is treated as a no-op.
   if (!msg) 
-    return CAN_STILL_IN_USE;
+    return CAN_OK;
+
 #if OS_ARG_CHK_EN > 0
   if (msg < msg_buffer || 
       msg >= msg_buffer + CAN_MSG_BUFFER_SIZE * sizeof(CAN_BUF_MSG) ||
@@ -75,10 +89,25 @@ CAN_RESULT CANBufErase(CAN_MSG* msg)
     return CAN_USER_ERROR;
 #endif
   buf = (CAN_BUF_MSG*)msg;
-  --buf->usecount;          // TODO: make sure this is an atomic decrement
+
+  // Acquire the mutex. This is necessary, because we could otherwise
+  // have a time-of-check-to-time-of-use error, causing us to free the
+  // buffer twice (and the second time, it might have been reallocated
+  // by another task).
+  OSMutexPend(buffer_mutex, 0, &err);
+  if (err != OS_ERR_NONE)
+    return CAN_NO_MUTEX;
+
+  --buf->usecount;
   if (buf->usecount)
-    return CAN_STILL_IN_USE; 
+  {
+    if (OSMutexPost(buffer_mutex) != OS_ERR_NONE)
+      return CAN_MISC_ERROR;
+    return CAN_STILL_IN_USE;
+  }
   index = ((INT8U*)msg - (INT8U*)msg_buffer) / sizeof(CAN_BUF_MSG);
   free_buffers[index / 8u] |= (1 << (index % 8u));
+  if (OSMutexPost(buffer_mutex) != OS_ERR_NONE)
+    return CAN_MISC_ERROR;
   return CAN_OK;
 }

@@ -81,6 +81,8 @@ void interrupt VectorNumber_Vcan0rx i_receive_frame()
   CANBufErase(&msg->message);  
 }
 
+void interrupt VectorNumber_Vcan0err i_err() {}
+
 /**
 * \brief    Calculate CAN bit timings based on baudrate and CAN_OPTIONS.
 */
@@ -137,7 +139,10 @@ void setFilters(INT32U nfilters, INT32U* filters) {
 }
 
 CAN_RESULT CANInit(void) {
-  CANBufClear();            // Initialise SW receive buffer   
+  INT8U err;
+  err = CANBufInit();       // Initialise SW receive buffer
+  if (err != CAN_OK)
+    return err;
   CANQInit();               // Initialise queueing system
   return CAN_OK;
 }
