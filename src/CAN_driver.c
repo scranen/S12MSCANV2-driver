@@ -48,17 +48,23 @@ INT32U CANId(CAN_MSG* msg)
 }
 
 CAN_RESULT CANForget(CAN_MSG* msg) { 
-  return CANBufErase(msg);
+  // Deleting a null pointer is treated as a no-op.
+  if (!msg) 
+    return CAN_OK;
+
+#if OS_ARG_CHK_EN > 0
+  if (msg < msg_buffer || 
+      msg >= msg_buffer + CAN_MSG_BUFFER_SIZE * sizeof(CAN_BUF_MSG) ||
+      msg % sizeof(CAN_BUF_MSG) > 0)
+    return CAN_USER_ERROR;
+#endif
+
+  return CANBufRelease((CAN_BUF_MSG*)msg, 1);
 }
 
 CAN_RESULT CANRegister(INT8U nids, INT32U* ids, OS_EVENT* queue)
 {
   return CANQRegister(nids, ids, queue);
-}
-
-CAN_RESULT CANUnregister(OS_EVENT* queue)
-{
-  return CANQUnregister(queue); 
 }
 
 /**
@@ -69,19 +75,42 @@ CAN_RESULT CANUnregister(OS_EVENT* queue)
 */
 void interrupt VectorNumber_Vcan0rx i_receive_frame()
 {
-  CAN_BUF_MSG* msg = CANBufStore(&CAN0RXIDR0);
-  CAN0RFLG = CAN0RFLG_RXF_MASK;
+  CAN_BUF_MSG* buf;
+  INT8U usecount = 0;
   
-  if (msg) {
-    last_rx_error = CANQPost(msg);
+  // Get a free buffer
+  buf = CANBufAcquire((CAN_MSG*)&CAN0RXIDR0);  
+  if (buf) {
+    // Post the message to the subscribers. If an error occurs, store it in
+    // last_rx_error.
+    last_rx_error = CANQPost(&buf->message, &usecount);
+    if (usecount)
+      // Set the usecount of the buffer. Note that other processes will not
+      // be unblocked before this ISR returns, so it doesn't matter that we
+      // already posted the message with a random usecount.
+      buf->usecount = usecount;
+    else
+      // Mark the buffer as unused again. This can only be done because this
+      // ISR is not re-entrant!
+      CANBufUnacquire();
   } else {
+    // We could not acquire a buffer; we store 0xff as last_rx_error, as this
+    // value is never returned by CANQPost (see above).
     last_rx_error = 0xff; 
-  }
-  
-  CANBufErase(&msg->message);  
+  }  
+  // Clear this interrupt (enables new interrupts too, so should not be done
+  // before CANBufUnacquire).  
+  CAN0RFLG = CAN0RFLG_RXF_MASK;  
 }
 
-void interrupt VectorNumber_Vcan0err i_err() {}
+void interrupt VectorNumber_Vcan0err i_err() {
+  // TODO: store the event somewhere, so that CANSendFrame may return an error
+  //       code when trying to send when the transmitter is in the HEAVY or 
+  //       OFF state.            
+  // Clear this interrupt (not clearing causes the handler to be called 
+  // again). 
+  CAN0RFLG = CAN0RFLG_CSCIF_MASK;
+}
 
 /**
 * \brief    Calculate CAN bit timings based on baudrate and CAN_OPTIONS.

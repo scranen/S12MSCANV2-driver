@@ -86,7 +86,6 @@ CAN_RESULT CANStart(void);
 CAN_RESULT CANConfigureBaudrate(INT32U baudrate, INT8U syncjump);
 CAN_RESULT CANSendFrame(CAN_ID u32ID, INT8U u8Prio, INT8U u8Length, INT8U *u8TxData);
 CAN_RESULT CANRegister(INT8U nids, INT32U* ids, OS_EVENT* queue);
-CAN_RESULT CANUnregister(OS_EVENT* queue);
 CAN_RESULT CANForget(CAN_MSG* msg);
 
 #ifdef __cplusplus

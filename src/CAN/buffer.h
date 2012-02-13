@@ -8,9 +8,9 @@ typedef struct can_buf_msg {
   INT8U usecount;
 } CAN_BUF_MSG; 
 
-void CANBufClear(void);
-CAN_BUF_MSG* CANBufStore(void* data);
-CAN_RESULT CANBufErase(CAN_MSG* msg);
+CAN_BUF_MSG* CANBufAcquire(CAN_MSG* data);
+void CANBufUnacquire(void);
+CAN_RESULT CANBufRelease(CAN_BUF_MSG* msg, INT8U n);
 CAN_RESULT CANBufInit(void);
 
 extern CAN_BUF_MSG msg_buffer[];

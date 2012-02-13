@@ -8,7 +8,7 @@
 #ifndef CAN_CONFIG_H_
 #define CAN_CONFIG_H_
 
-#define CAN_MUTEX_PRIO        OS_LOWEST_PRIO
+#define CAN_MUTEX_PRIO                    1u // Highest possible
 #define CAN_CLOCK_OSC_SPEED         4000000u //  4Mhz
 #define CAN_CLOCK_BUS_SPEED        20000000u // 20Mhz
 #define CAN_MSG_BUFFER_SIZE              10u

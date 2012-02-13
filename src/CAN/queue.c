@@ -14,25 +14,28 @@ typedef struct can_queue
 } CAN_QUEUE;
 
 static CAN_QUEUE msg_queues[CAN_MAX_QUEUES];
+static INT8U queue_count;
 
 void CANQInit(void) {
   INT8U q;
   for (q = 0; q < CAN_MAX_QUEUES; ++q)
     msg_queues[q].queue = (void*)0;
+  queue_count = 0;
 }
 
-INT8U CANQPost(CAN_BUF_MSG* buf)
+INT8U CANQPost(CAN_MSG* msg, INT8U* usecount)
 {
-  INT32U id = CANId(&buf->message);
-  INT8U error = 0, q = 0, i;              
+  INT32U id = CANId(msg);
+  INT8U error = 0, q = 0, i;
+  *usecount = 0;       
   while ((msg_queues[q].queue) && (q < CAN_MAX_QUEUES) && (!error))
   {
     if (!msg_queues[q].nids)
     {   
-      ++(buf->usecount);          
-      error = OSQPost(msg_queues[q].queue, &buf->message);
+      ++(*usecount);          
+      error = OSQPost(msg_queues[q].queue, msg);
       if (error) {
-        --(buf->usecount);
+        --(*usecount);
       }
     }
     else
@@ -41,10 +44,10 @@ INT8U CANQPost(CAN_BUF_MSG* buf)
       {
         if (msg_queues[q].ids[i] == id)
         {              
-          ++(buf->usecount);            
-          error = OSQPost(msg_queues[q].queue, &buf->message);
+          ++(*usecount);            
+          error = OSQPost(msg_queues[q].queue, msg);
           if (error)     
-            --(buf->usecount);
+            --(*usecount);
           break;
         }
       }
@@ -57,7 +60,7 @@ INT8U CANQPost(CAN_BUF_MSG* buf)
 }
 
 /*
- * TODO: use mutex for Register/Unregister.
+ * TODO: use mutex for Register.
  */
 
 CAN_RESULT CANQRegister(INT8U nids, INT32U* ids, OS_EVENT* queue)
@@ -70,20 +73,11 @@ CAN_RESULT CANQRegister(INT8U nids, INT32U* ids, OS_EVENT* queue)
   msg_queues[q].queue = queue;
   msg_queues[q].ids = ids;
   msg_queues[q].nids = nids;
+  queue_count++;
   return CAN_OK;
 }
 
-CAN_RESULT CANQUnregister(OS_EVENT* queue)
+INT8U CANQCount(void)
 {
-  INT8U qi, qe;
-  while (msg_queues[qe].queue && qe < CAN_MAX_QUEUES)
-  {
-    if (msg_queues[qe].queue == queue)
-      qi = qe;
-    ++qe;
-  }
-  --qe;
-  msg_queues[qi] = msg_queues[qe];
-  msg_queues[qe].queue = (void*)0;
-  return CAN_OK;
+  return queue_count;
 }
